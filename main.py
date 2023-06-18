@@ -13,6 +13,8 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
+from mockdata import get_mock_data
+
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
@@ -38,6 +40,10 @@ def get_gpt_response(user_input):
         messages=[{"role": "user", "content": gen_prompt(user_input)}],
     )
     return json.loads(response.choices[0].message.content)
+
+
+def get_fake_gpt_response(user_input):
+    return get_mock_data(user_input)
 
 
 def convert_date_time_to_utc(date, time):
@@ -75,26 +81,32 @@ def find_free_slot(service, duration, pos_interval_start, pos_interval_end):
     busy_list = free_busy_res['calendars']['primary']['busy']
 
     free_start = pos_interval_start_dt
+    free_end = free_start + duration_min
+
     if len(busy_list) == 0:
-        free_end = free_start + duration_min
+        # No other events are scheduled during this whole range of times.
         free_slot = [free_start.isoformat() + 'Z', free_end.isoformat() + 'Z']
         return free_slot
 
     i = 0
-    while free_start < pos_interval_end_dt:
+    while free_end < pos_interval_end_dt:
         if i >= len(busy_list):
+            # We have gone past all busy intervals
+            if free_end <= pos_interval_end_dt:
+                return [free_start.isoformat() + 'Z', free_end.isoformat() + 'Z']
             return free_slot
         busy_start_dt = datetime.fromisoformat(busy_list[i]['start'].replace('Z', ''))
         busy_end_dt = datetime.fromisoformat(busy_list[i]['end'].replace('Z', ''))
-        if free_start >= busy_start_dt:
+        if free_end > busy_start_dt or (busy_start_dt <= free_start < busy_end_dt):
+            # Current [free_start, free_end] overlaps with a busy interval
+            # Place free_start at the earliest possible non-busy place
             free_start = busy_end_dt
-            i += 1
-        elif free_start + duration_min <= busy_start_dt:
             free_end = free_start + duration_min
-            free_slot = [free_start.isoformat() + 'Z', free_end.isoformat() + 'Z']
-            return free_slot
-        else:
-            free_start += timedelta(minutes=1)
+            i += 1
+        elif free_end <= busy_start_dt:
+            # Current [free_start, free_end] doesn't overlap with a busy interval
+            return [free_start.isoformat() + 'Z', free_end.isoformat() + 'Z']
+
     return free_slot
 
 
@@ -138,8 +150,8 @@ def main():
     user_input = input("What would you like to schedule this week?\n ")
 
     # Parse text input from user through GPT-3 model.
-    json_file = get_gpt_response(user_input)
-    # print(json.dumps(json_file, indent=4))
+    # TODO: Replace with actual gpt response when testing.
+    json_file = get_fake_gpt_response(user_input)
 
     try:
         service = build('calendar', 'v3', credentials=creds)
@@ -152,15 +164,20 @@ def main():
         while event_ctr < len(json_file['events']):
             event = json_file['events'][event_ctr]
             free_slot_found = False
-            for posInterval in event['possibleIntervals']:
-                pos_interval_start = convert_date_time_to_utc(posInterval['date'], posInterval['timePeriod']['startTime'])
-                pos_interval_end = convert_date_time_to_utc(posInterval['date'], posInterval['timePeriod']['endTime'])
+            pos_int_ctr = 0
+            while not free_slot_found and pos_int_ctr < len(event['possibleIntervals']):
+                pos_interval = event['possibleIntervals'][pos_int_ctr]
+                pos_interval_start = convert_date_time_to_utc(pos_interval['date'], pos_interval['timePeriod']['startTime'])
+                pos_interval_end = convert_date_time_to_utc(pos_interval['date'], pos_interval['timePeriod']['endTime'])
                 free_slot = find_free_slot(service, event['duration'], pos_interval_start, pos_interval_end)
                 if free_slot[0] != -1:
+                    # Once a free_slot has been found, we have scheduled the event
                     free_slot_found = True
                     found_urls.append(add_event_to_calendar(service, event['eventName'], free_slot))
+                pos_int_ctr += 1
             if not free_slot_found:
                 no_free_slot_names.append(event['eventName'])
+            event_ctr += 1
 
         for url in found_urls:
             print("Event created: %s" % url)
