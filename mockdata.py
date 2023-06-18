@@ -61,7 +61,7 @@ mock_data_1 = {
 }
 
 # Query: "Hey, I need to do my laundry sometime Friday before 6pm. Also hold space for 3 hours on Tuesday evening for
-# me to  finish my essay."
+# me to finish my essay."
 mock_data_2 = {
   "events": [
     {
@@ -93,7 +93,40 @@ mock_data_2 = {
   ]
 }
 
-mock_data_arr = [mock_data_0, mock_data_1, mock_data_2]
+# Query: "I need to drive my friend to the airport Wednesday night, probably takes 1 hour roundtrip. My mom has a
+# hospital appointment Thursday from 5 to 6pm."
+mock_data_3 = {
+  "events": [
+    {
+      "eventName": "Drive to Airport",
+      "duration": 60,
+      "possibleIntervals": [
+        {
+          "date": "2023-06-21",
+          "timePeriod": {
+            "startTime": "18:00",
+            "endTime": "23:59"
+          }
+        }
+      ]
+    },
+    {
+      "eventName": "Hospital Appointment",
+      "duration": 60,
+      "possibleIntervals": [
+        {
+          "date": "2023-06-22",
+          "timePeriod": {
+            "startTime": "17:00",
+            "endTime": "18:00"
+          }
+        }
+      ]
+    }
+  ]
+}
+
+mock_data_arr = [mock_data_0, mock_data_1, mock_data_2, mock_data_3]
 
 
 def get_mock_data(user_input):

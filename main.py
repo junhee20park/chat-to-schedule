@@ -22,9 +22,8 @@ LOCAL_TIME_ZONE = pytz.timezone("America/Los_Angeles")
 
 
 def gen_prompt(user_input):
-    # TODO: Get today's date, and place in day_name and formatted_data
-    day_name = "Sunday"
-    formatted_date = "2023-06-18"
+    day_name = datetime.today().strftime('%A')
+    formatted_date = datetime.today().strftime('%Y-%m-%d')
     return "Generate a JSON file that is an array of events named 'events'. Each event has the following fields: " \
            "eventName, duration (in minutes), possibleIntervals[ { date, timePeriod: {startTime, endTime} ]. " \
            "timePeriod indicates the full range of time that event could happen. Today is " + day_name + " " + \
@@ -157,6 +156,7 @@ def main():
         service = build('calendar', 'v3', credentials=creds)
 
         no_free_slot_names = []
+        found_names = []
         found_urls = []
 
         event_ctr = 0
@@ -173,14 +173,15 @@ def main():
                 if free_slot[0] != -1:
                     # Once a free_slot has been found, we have scheduled the event
                     free_slot_found = True
+                    found_names.append(event['eventName'])
                     found_urls.append(add_event_to_calendar(service, event['eventName'], free_slot))
                 pos_int_ctr += 1
             if not free_slot_found:
                 no_free_slot_names.append(event['eventName'])
             event_ctr += 1
 
-        for url in found_urls:
-            print("Event created: %s" % url)
+        for i in range(len(found_names)):
+            print("Event created for, " + found_names[i] + ": %s" % found_urls[i])
         for not_found_event in no_free_slot_names:
             print("Sorry, I couldn't add " + not_found_event + " to your calendar because of conflicts")
 
