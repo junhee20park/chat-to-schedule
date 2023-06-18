@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 from datetime import datetime
+from datetime import timedelta
 import json
 import openai
 import os.path
@@ -13,7 +14,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 # If modifying these scopes, delete the file token.json.
-SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
+SCOPES = ['https://www.googleapis.com/auth/calendar']
 
 LOCAL_TIME_ZONE = pytz.timezone("America/Los_Angeles")
 
@@ -55,7 +56,10 @@ def find_free_slot(service, duration, pos_interval_start, pos_interval_end):
                 or [-1,-1] if free slot cannot be found. """
     free_slot = [-1, -1]
 
-    duration_min = datetime.timedelta(minutes=duration)
+    duration_min = timedelta(minutes=duration)
+
+    pos_interval_start_dt = datetime.fromisoformat(pos_interval_start.replace('Z', ''))
+    pos_interval_end_dt = datetime.fromisoformat(pos_interval_end.replace('Z', ''))
 
     free_busy_body = {
         "timeMin": pos_interval_start,
@@ -70,23 +74,27 @@ def find_free_slot(service, duration, pos_interval_start, pos_interval_end):
     free_busy_res = service.freebusy().query(body=free_busy_body).execute()
     busy_list = free_busy_res['calendars']['primary']['busy']
 
-    free_start = datetime.fromisoformat(pos_interval_start.replace('Z', ''))
+    free_start = pos_interval_start_dt
     if len(busy_list) == 0:
         free_end = free_start + duration_min
-        free_slot = [free_start.isoformat().replace('+00:00', 'Z'), free_end.isoformat().replace('+00:00', 'Z')]
+        free_slot = [free_start.isoformat() + 'Z', free_end.isoformat() + 'Z']
         return free_slot
 
     i = 0
-    while free_start < pos_interval_end:
+    while free_start < pos_interval_end_dt:
         if i >= len(busy_list):
             return free_slot
-        elif free_start >= busy_list[i].start:
-            free_start = busy_list[i].end
+        busy_start_dt = datetime.fromisoformat(busy_list[i]['start'].replace('Z', ''))
+        busy_end_dt = datetime.fromisoformat(busy_list[i]['end'].replace('Z', ''))
+        if free_start >= busy_start_dt:
+            free_start = busy_end_dt
             i += 1
-        elif free_start + duration_min <= busy_list[i].start:
+        elif free_start + duration_min <= busy_start_dt:
             free_end = free_start + duration_min
-            free_slot = [free_start.isoformat().replace('+00:00', 'Z'), free_end.isoformat().replace('+00:00', 'Z')]
+            free_slot = [free_start.isoformat() + 'Z', free_end.isoformat() + 'Z']
             return free_slot
+        else:
+            free_start += timedelta(minutes=1)
     return free_slot
 
 
@@ -139,9 +147,11 @@ def main():
         no_free_slot_names = []
         found_urls = []
 
-        for event in json_file['events']:
-            free_slot_found = False
+        event_ctr = 0
 
+        while event_ctr < len(json_file['events']):
+            event = json_file['events'][event_ctr]
+            free_slot_found = False
             for posInterval in event['possibleIntervals']:
                 pos_interval_start = convert_date_time_to_utc(posInterval['date'], posInterval['timePeriod']['startTime'])
                 pos_interval_end = convert_date_time_to_utc(posInterval['date'], posInterval['timePeriod']['endTime'])
@@ -149,7 +159,6 @@ def main():
                 if free_slot[0] != -1:
                     free_slot_found = True
                     found_urls.append(add_event_to_calendar(service, event['eventName'], free_slot))
-
             if not free_slot_found:
                 no_free_slot_names.append(event['eventName'])
 
