@@ -21,7 +21,7 @@ After multiple attempts, I found the following query worked best at outputting c
 
 
 ### To-Do
-[ ] Build front-end for easy use
-[ ] Add speech-to-text input method
-[ ] Add location to events
-[ ] Solve prompt engineering problem of GPT not being able to understand recurring events (such as "Find me a 10-minute block Monday, Tuesday and Wednesday"
+- Build front-end for easy use
+- Add speech-to-text input method
+- Add location to events
+- Solve prompt engineering problem of GPT not being able to understand recurring events (such as "Find me a 10-minute block Monday, Tuesday and Wednesday"
