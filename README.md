@@ -8,7 +8,7 @@ https://github.com/junhee20park/time-finder/assets/69227966/7b8a5704-bcaf-42f9-9
 "Schedule a grocery shopping trip sometime Thursday night, maybe 1 hour or so."
 https://github.com/junhee20park/time-finder/assets/69227966/136ab0dd-b845-41ba-8c75-3e0778fa7a68
 
-"Find me 3 hours sometime Monday to Friday so I can work on my project."
+"Find me 3 hours sometime Monday night or Tuesday night so I can work on my project."
 
 
 ### Technical Aspects
